@@ -31,7 +31,7 @@ int s_push(Stack* s_stack, void* sn_data) {
 
 /**
  * Pop
- *
+ * is the problem here? after a pop, data is incorrect.
  */
 void* s_pop(Stack* s_stack) {
 	if (!s_stack) 
@@ -40,10 +40,10 @@ void* s_pop(Stack* s_stack) {
 		return 0;
 
 	StackNode* sn_popped = (StackNode*) s_stack->s_tail;	
-	--s_stack->s_size;
-	
+	s_stack->s_tail = sn_popped->sn_prev;	
 	void* sn_popped_data = sn_popped->sn_data;
 	
+	--s_stack->s_size;
 	free(sn_popped);
 	return sn_popped_data;
 }

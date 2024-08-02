@@ -49,8 +49,8 @@ RegexElement* re_parse(size_t str_size, char rgx_str[str_size]) {
 	size_t index = 0;
 	int err = errno;
 
-	Stack* procesing_stack = s_init(s_destroy);
-	if (!procesing_stack)
+	Stack* processing_stack= s_init(s_destroy);
+	if (!processing_stack)
 		return re_mem_err_cleanup(err);	
 	
 	while (index < str_size) {
@@ -83,7 +83,7 @@ RegexElement* re_parse(size_t str_size, char rgx_str[str_size]) {
 		}
 	}
 	
-	s_destroy(procesing_stack);
+	s_destroy(processing_stack);
 
 	return 0;
 }

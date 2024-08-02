@@ -33,8 +33,8 @@ int main(void) {
 	free(replaced_str);
 
 	// regex element basics tests
-	RegexElement* test_elem_a = re_init(nodeElement, zeroOrOne) ; 
-	RegexElement* test_elem_b = re_init(leafElement, zeroOrMore) ; 
+	RegexElement* test_elem_a = re_init(nodeElement, zeroOrOne); 
+	RegexElement* test_elem_b = re_init(leafElement, zeroOrMore); 
 
 	assert(test_elem_a != 0);
 	assert(test_elem_b != 0);
