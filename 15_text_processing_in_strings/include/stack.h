@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <limits.h>
-#include "errors.h"
+#include "required_errors.h"
 
 typedef struct Stack Stack;
 struct Stack {
@@ -48,5 +48,11 @@ Stack* s_init(void (*s_destroy_data)(void* data));
  */
 void s_destroy(void* s_stack);
 
+/*
+ * Compare
+ *
+ */
+int s_compare(Stack* stack_a, Stack* stack_b,
+		int (*compare_fn)(void* a, void* b));
 
 #endif

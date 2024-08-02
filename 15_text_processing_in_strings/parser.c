@@ -1,18 +1,13 @@
 #include "./include/parser.h"
-// stack size is defined in terms of max uchar val
-#define STATE_SIZE UCHAR_MAX + 1
-
-static void* re_mem_err_cleanup(int prev_err) {
-	errno = prev_err;
-	return 0;
-}
 
 RegexElement* re_init(ElementType re_type, Quantifier re_quantifier) { 
 	int err = errno;
 
 	RegexElement* new_re = malloc(sizeof(*new_re));
-	if (!new_re) 
-		return re_mem_err_cleanup(err);
+	if (!new_re) {
+	 	error_cleanup(ENOMEM, err);	
+		return 0; 
+	} 
 	
 	new_re->re_type = re_type;
 	new_re->re_quantifier = re_quantifier;	
@@ -40,50 +35,86 @@ void re_destroy(void* re_slated) {
 
 /**
  * mallocs space for node, must be handled with re_destroy
- *
+ * re-implement to use error codes
  */
-RegexElement* re_parse(size_t str_size, char rgx_str[str_size]) {
-	if (!rgx_str || str_size == 0) 
-		return 0;
+int re_parse(RegexElement** regex, size_t str_size, char rgx_str[str_size]) {
+	if (!regex)
+		return -EFAULT;
+	if (*regex)
+		return -EFAULT;
+	if (!rgx_str)
+		return -EFAULT;
+	if (str_size == 0) 
+		return -EFAULT;
 	
 	size_t index = 0;
 	int err = errno;
+	int return_code = 0;
 
-	Stack* processing_stack= s_init(s_destroy);
+	Stack* processing_stack = s_init(s_destroy);
 	if (!processing_stack)
-		return re_mem_err_cleanup(err);	
-	
-	while (index < str_size) {
-		switch (rgx_str[index]) {
-			case '.': 
-				assert(0 && "TODO: implement this case");
-				break;
-			case '*': 
-				assert(0 && "TODO: implement this case");
-				break;
-			case '^':
-				assert(0 && "TODO: implement this case");
-				break;
-			case '?': 
-				assert(0 && "TODO: implement this case");
-				break;
-			case '[': 
-				assert(0 && "TODO: implement this case");
-				break;
-			case ']': 
-				assert(0 && "TODO: implement this case");
-				break;
-			case '\\': 
-				assert(0 && "TODO: implement this case");
-				break;
-			default:
-				// just directly push the character we get
-				assert(0 && "TODO: implement this case");
-				break; 
-		}
-	}
-	
-	s_destroy(processing_stack);
+		return error_cleanup(ENOMEM, err); 
 
-	return 0;
+	Stack* first_group = s_init(re_destroy);
+	if (!first_group)
+		return error_cleanup(ENOMEM, err); 
+	s_push(processing_stack, first_group);
+	
+	 while (index < str_size) {
+		 RegexElement* next_elem = 0;
+	 	switch (rgx_str[index]) {
+	 		case '*': 
+	 			assert(0 && "TODO: implement this case");
+				++index;
+	 			break;
+	 		case '^':
+	 			assert(0 && "TODO: implement this case");
+				++index;
+	 			break;
+	 		case '?': 
+	 			assert(0 && "TODO: implement this case");
+				++index;
+	 			break;
+	 		case '.': 
+	 			assert(0 && "TODO: implement this case");
+				++index;
+	 			break;
+	 		case '[': 
+	 			assert(0 && "TODO: implement this case");
+				++index;
+	 			break;
+	 		case ']': 
+	 			assert(0 && "TODO: implement this case");
+				++index;
+	 			break;
+	 		case '\\': 
+	 			assert(0 && "TODO: implement this case");
+				index += 2;
+	 			break;
+	 		default:
+	 			// just directly push the character we get
+				next_elem = re_init(leafElement, exactlyOne);
+
+				if (!next_elem) {
+					return_code = error_cleanup(EFAULT, err);
+					goto CLEANUP;		
+				}
+
+				next_elem->re_value = rgx_str[index];
+				s_push(first_group, next_elem);
+				++index;
+	 			break; 
+	 	}
+	}
+
+	return_code = index;	
+	assert(index == str_size);
+	assert(processing_stack->s_size == 1);
+
+	RegexElement* final_group = re_init(nodeElement, exactlyOne);
+	final_group->re_stack = (Stack*) s_pop(processing_stack); 
+	*regex = final_group; 
+ CLEANUP:	 
+	s_destroy(processing_stack);
+	return return_code;
 }

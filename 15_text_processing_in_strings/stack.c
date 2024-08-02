@@ -1,10 +1,5 @@
 #include "stack.h"
 
-static int error_cleanup(int err, int prev) {
-	errno = prev;
-	return -err;	
-}
-
 /**
  * Push
  *
@@ -97,4 +92,27 @@ void s_destroy(void* s_stack) {
 	}
 
 	free(s_stack_cast);
+}
+
+/*
+ * Compare
+ *
+ */
+int s_compare(Stack* stack_a, Stack* stack_b,
+		int (*compare_fn)(void* a, void* b)) {
+
+	StackNode* cursor_a = (StackNode*) s_peek(stack_a);
+	StackNode* cursor_b = (StackNode*) s_peek(stack_b);
+	
+	size_t count = 0;
+	while (cursor_a && cursor_b) {
+		if (!compare_fn(cursor_a->sn_data, cursor_b->sn_data))
+			return 0;
+		cursor_a = cursor_a->sn_prev;
+		cursor_b = cursor_b->sn_prev;
+	}
+	if (count != stack_a->s_size || count != stack_b->s_size)
+		return 0;
+	else 
+		return 1;
 }

@@ -1,6 +1,6 @@
 CC=gcc
-INCDIRS=./include ../utils
-CODEDIRS=. ../utils
+INCDIRS=./include 
+CODEDIRS=. 
 OPT=-O0
 CFLAGS=-Wall -Wextra -g $(foreach D,$(INCDIRS),-I$(D)) $(OPT)
 
