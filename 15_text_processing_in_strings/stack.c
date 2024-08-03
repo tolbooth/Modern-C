@@ -101,8 +101,8 @@ void s_destroy(void* s_stack) {
 int s_compare(Stack* stack_a, Stack* stack_b,
 		int (*compare_fn)(void* a, void* b)) {
 
-	StackNode* cursor_a = (StackNode*) s_peek(stack_a);
-	StackNode* cursor_b = (StackNode*) s_peek(stack_b);
+	StackNode* cursor_a = (StackNode*) stack_a->s_tail; 
+	StackNode* cursor_b = (StackNode*) stack_b->s_tail;	
 	
 	size_t count = 0;
 	while (cursor_a && cursor_b) {
@@ -110,6 +110,7 @@ int s_compare(Stack* stack_a, Stack* stack_b,
 			return 0;
 		cursor_a = cursor_a->sn_prev;
 		cursor_b = cursor_b->sn_prev;
+		++count;
 	}
 	if (count != stack_a->s_size || count != stack_b->s_size)
 		return 0;
