@@ -35,7 +35,13 @@ void re_destroy(void* re_slated) {
 
 /**
  * mallocs space for node, must be handled with re_destroy
- * re-implement to use error codes
+ * issues:
+ *  1. handling character classes is messy
+ *  2. negating a an element or group is not possible
+ * 
+ * in both of these cases, we need some sense of "any of these, but must be
+ * at least one of them". do we need to have a new type of RegexElement?
+ * need 4 characters to define boundaries of a range, to allow for negation
  */
 int re_parse(RegexElement** regex, size_t str_size, char rgx_str[str_size]) {
 	if (!regex)
@@ -79,6 +85,9 @@ int re_parse(RegexElement** regex, size_t str_size, char rgx_str[str_size]) {
 	 			assert(0 && "TODO: implement this case");
 				++index;
 	 			break;
+			// handle character classes. we need to match specific formats,
+			// alphas and numerics first, defined in a range and separated by a
+			// dash.  
 	 		case '[': 
 	 			assert(0 && "TODO: implement this case");
 				++index;
@@ -88,7 +97,21 @@ int re_parse(RegexElement** regex, size_t str_size, char rgx_str[str_size]) {
 				++index;
 	 			break;
 	 		case '\\': 
-	 			assert(0 && "TODO: implement this case");
+	 			// push the character in the next index, escaped. returns val
+				// -EFAULT if this is the last character in the regex string. 
+				if (index + 1 > str_size) {
+					return_code = error_cleanup(EFAULT, err);
+					goto CLEANUP;
+				}
+
+				next_elem = re_init(leafElement, exactlyOne);
+				if (!next_elem) {
+					return_code = error_cleanup(ENOMEM, err);
+					goto CLEANUP;		
+				}
+
+				next_elem->re_value = rgx_str[index + 1];
+				s_push(first_group, next_elem);
 				index += 2;
 	 			break;
 	 		default:
@@ -96,7 +119,7 @@ int re_parse(RegexElement** regex, size_t str_size, char rgx_str[str_size]) {
 				next_elem = re_init(leafElement, exactlyOne);
 
 				if (!next_elem) {
-					return_code = error_cleanup(EFAULT, err);
+					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
 				}
 
