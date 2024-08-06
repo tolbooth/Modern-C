@@ -1,4 +1,8 @@
+#include <stdlib.h>
+#include <string.h>
+
 #include "./include/string_search.h"
+#include "./include/errors.h"
 
 /**
  * Generates the lookup table for use in the KMP pattern matching algorithm.

@@ -1,4 +1,4 @@
-#include "./include/required_errors.h"
+#include "errors.h"
 
 int error_cleanup(int err, int prev) {
 	errno = prev;

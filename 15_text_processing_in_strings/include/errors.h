@@ -1,5 +1,5 @@
-#ifndef REQUIRED_ERRORS_H
-#define REQUIRED_ERRORS_H
+#ifndef ERRORS_H 
+#define ERRORS_H 
 
 #include <errno.h>
 

@@ -23,6 +23,21 @@
       match precisely n closed parenthesis given n open, the state machine will
       grow without bound. And so it turns out that determining whether a string
       has balanced parentheses is not possible with a formal regular language
+- modeling a regex:
+a(b \* | c) | a
+-> {., 1, ()}
+-> {., 1, (a)}
+-> {., 1, (a)}, {., 1, ()}
+-> {., 1, (a)}, {., 1, (b)}
+-> {., 1, (a)}, {., \*, (b)}
+-> {., 1, (a)}, {|, \*, (b)}, {., 1, ()}
+-> {., 1, (a)}, {|, \*, (b)}, {., 1, (c)}
+-> {., 1, (a)}, {|, \*, (b, {., 1, (c)})}
+-> {., 1, (a, {|, \*, (b, {., 1, (c)})})}
+-> {., 1, (a)}, {|, ({|, \*, (b, {., 1, (c)})})}
+-> {., 1, (a)}, {|, ({|, \*, (b, {., 1, (c)})}, a)}
+-> {., 1, (a)}, {|, ({|, \*, (b)}, c, a)}
+-> {., 1, (a, {|, ({|, \*, (b)}, c, a)})}
 
 ## Modern C Library Design
 - "value oriented design" -- PASS BY VALUE, for example

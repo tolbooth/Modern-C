@@ -1,4 +1,7 @@
-#include "stack.h"
+#include <stdlib.h>
+
+#include "./include/stack.h"
+#include "./include/errors.h"
 
 /**
  * Push

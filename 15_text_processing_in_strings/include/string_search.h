@@ -1,10 +1,6 @@
 #ifndef STRING_MANIP_UTILS
 #define STRING_MANIP_UTILS
 
-#include <stdlib.h>
-#include <string.h>
-#include "required_errors.h"
-
 /**
  * Generates the lookup table for use in the KMP pattern matching algorithm.
  *

@@ -1,9 +1,7 @@
 #ifndef STACK_H
 #define STACK_H
 
-#include <stdlib.h>
-#include <limits.h>
-#include "required_errors.h"
+#include <stddef.h>
 
 typedef struct Stack Stack;
 struct Stack {
