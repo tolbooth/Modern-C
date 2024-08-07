@@ -17,9 +17,11 @@ enum RegexQuantifier {
 
 typedef enum RegexElementType RegexElementType;
 enum RegexElementType {
-	conjunctionGroup,
+	conjunctionGroup = 0,
 	disjunctionGroup,
 	symbolType,
+	rangeType,	
+	wildCard,
 };
 
 typedef struct RegexAtom RegexAtom;

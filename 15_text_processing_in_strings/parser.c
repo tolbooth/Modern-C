@@ -52,21 +52,27 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 	 			assert(0 && "TODO: implement this case");
 				++index;
 	 			break;
-	 		case '.': 
-	 			assert(0 && "TODO: implement this case");
-				++index;
-	 			break;
-			// handle character classes. we need to match specific formats,
-			// alphas and numerics first, defined in a range and separated by a
-			// dash.  
 	 		case '[': 
 	 			assert(0 && "TODO: implement this case");
 				++index;
 	 			break;
-	 		case ']': 
+	 		case ']': // error on mismatched brackets? 
 	 			assert(0 && "TODO: implement this case");
 				++index;
 	 			break;
+	 		case '.': 
+				next_elem = re_init(wildCard, exactlyOne);
+
+				if (!next_elem) {
+					return_code = error_cleanup(ENOMEM, err);
+					goto CLEANUP;		
+				}
+
+				s_push(first_group, next_elem);
+				++index;
+	 			break; 
+			// alphas and numerics first, defined in a range and separated by a
+			// dash.  
 	 		case '\\': 
 	 			// push the character in the next index, escaped. returns val
 				// -EFAULT if this is the last character in the regex string. 

@@ -16,7 +16,7 @@ RegexAtom* re_init(RegexElementType re_type, RegexQuantifier re_quantifier) {
 	new_re->re_quantifier = re_quantifier;	
 	new_re->re_negated = 0;
 
-	if (re_type != symbolType) {
+	if (re_type <= disjunctionGroup) {
 		Stack* group = s_init(re_destroy);	// add destructor here
 		new_re->group_exp = group;	
 	} else {
@@ -31,8 +31,9 @@ void re_destroy(void* re_slated) {
 	if (!re_slated) return;
 	
 	RegexAtom* re_slated_cast = (RegexAtom*) re_slated;
-
-	if (re_slated_cast->re_type != symbolType) {
+	
+	// relies on ordering of enum.
+	if (re_slated_cast->re_type <= disjunctionGroup) {
 		s_destroy(re_slated_cast->group_exp);	
 	}
 
