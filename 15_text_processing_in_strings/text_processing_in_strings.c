@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
 
 #include "./include/parser.h"
 #include "./include/string_search.h"
@@ -19,6 +20,42 @@
  *  Do query replace with regexp against a single word?
  *  Extend a regexp with grouping?
  */
+
+static char* types[5] = {"cGroup", "dGroup", "sym", "range", "wild"};
+static char* quantifiers[3] = {"zeroOrOne", "exactlyOne", "zeroOrMore"};
+
+static void print_regex(RegexAtom* regexp, size_t count) {
+	for (size_t i = 0; i < count; ++i)
+		putchar('\t');
+
+	putchar('{');
+	putchar('\n');
+	
+	for (size_t i = 0; i < count + 1; ++i)
+		putchar('\t');
+	printf("%s, %s, %d, ", types[regexp->re_type], 
+			quantifiers[regexp->re_quantifier],
+			regexp->re_negated);
+	if (regexp->re_type <= 1) {
+		StackNode* cursor = (StackNode*) regexp->group_exp->s_tail;
+		putchar('\n');
+		while (cursor) {
+			if (cursor->sn_data) {
+				print_regex((RegexAtom*) cursor->sn_data, count + 1);
+			}
+			cursor = cursor->sn_prev;
+		}
+	} else {
+		printf("%c", regexp->symbol_exp);
+	}
+	putchar('\n');
+	
+	for (size_t i = 0; i < count; ++i) 
+		putchar('\t');
+
+	putchar('}');	
+	putchar('\n');	
+}
 
 /**
  * Helper function for comparing regex objects. Currently broken!
@@ -40,8 +77,9 @@ static int compare_regex(void* item_a, void* item_b) {
 	switch(reg_a->re_type) {
 		case symbolType:
 			return reg_a->symbol_exp == reg_b->symbol_exp;
-		case wildCard:
-			return 1;
+		case rangeType:
+			return (reg_a->range_exp.r_start == reg_b->range_exp.r_start
+				&& reg_a->range_exp.r_end == reg_b->range_exp.r_end);
 		default:
 			return s_compare(reg_a->group_exp, reg_b->group_exp, compare_regex);
 	}
@@ -73,8 +111,8 @@ int main(void) {
 
 	// regex element basics tests
 	{
-		RegexAtom* test_elem_a = re_init(conjunctionGroup, zeroOrOne); 
-		RegexAtom* test_elem_b = re_init(symbolType, zeroOrMore); 
+		RegexAtom* test_elem_a = re_init(conjunctionGroup, zeroOrOne, 0); 
+		RegexAtom* test_elem_b = re_init(symbolType, zeroOrMore, 0); 
 
 		assert(test_elem_a != 0);
 		assert(test_elem_b != 0);
@@ -98,14 +136,14 @@ int main(void) {
 		assert(test_elem_b->re_quantifier == exactlyOne);
 		
 		Stack* expected_stack = s_init(re_destroy);	
-		RegexAtom* t_regex = re_init(symbolType, exactlyOne); 
-		RegexAtom* o_regex = re_init(symbolType, exactlyOne); 
+		RegexAtom* t_regex = re_init(symbolType, exactlyOne, 0); 
+		RegexAtom* o_regex = re_init(symbolType, exactlyOne, 0); 
 		t_regex->symbol_exp = 't';
 		o_regex->symbol_exp = 'o';
 		s_push(expected_stack, t_regex);
 		s_push(expected_stack, o_regex);
 		
-		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne);
+		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne, 0);
 		expected_regex->group_exp = expected_stack;
 		assert(compare_regex(test_elem_b, expected_regex));
 		
@@ -118,14 +156,56 @@ int main(void) {
 		assert(parse(&test_elem_c, 1, ".") == 1);
 
 		Stack* expected_stack = s_init(re_destroy);	
-		RegexAtom* wild_regex = re_init(wildCard, exactlyOne); 
+		RegexAtom* wild_regex = re_init(rangeType, exactlyOne, 0);
+		wild_regex->range_exp.r_start = CHAR_MIN;
+		wild_regex->range_exp.r_end = CHAR_MAX;
 		s_push(expected_stack, wild_regex);
 
-		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne);
+		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne, 0);
 		expected_regex->group_exp = expected_stack;
 		assert(compare_regex(test_elem_c, expected_regex));
 		
 		re_destroy(expected_regex);
 		re_destroy(test_elem_c);
+	}
+	// valid quantified regex
+	{
+		RegexAtom* test_elem_d = 0; 
+		assert(parse(&test_elem_d, 4, "a*b?") == 4);
+
+		Stack* expected_stack = s_init(re_destroy);	
+		RegexAtom* many_a_regex = re_init(symbolType, zeroOrMore, 0); 
+		RegexAtom* optional_b_regex = re_init(symbolType, zeroOrOne, 0); 
+		many_a_regex->symbol_exp = 'a';
+		optional_b_regex->symbol_exp = 'b';
+		s_push(expected_stack, many_a_regex);
+		s_push(expected_stack, optional_b_regex);
+
+		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne, 0);
+		expected_regex->group_exp = expected_stack;
+		// print_regex(expected_regex, 0);
+		// print_regex(test_elem_d, 0);
+		assert(compare_regex(test_elem_d, expected_regex));
+		
+		re_destroy(expected_regex);
+		re_destroy(test_elem_d);
+	}
+	// valid negation
+	{
+		RegexAtom* test_elem_e = 0;
+		assert(parse(&test_elem_e, 3, "^a*") == 3);
+
+		Stack* expected_stack = s_init(re_destroy);	
+		RegexAtom* negated_regex = re_init(symbolType, zeroOrMore, 1);
+	   	negated_regex->symbol_exp = 'a';	
+		s_push(expected_stack, negated_regex);
+
+		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne, 0);
+		expected_regex->group_exp = expected_stack;	
+
+		assert(compare_regex(test_elem_e, expected_regex));
+
+		re_destroy(expected_regex);
+		re_destroy(test_elem_e);
 	}
 }

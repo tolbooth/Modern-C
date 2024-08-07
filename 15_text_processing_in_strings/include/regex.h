@@ -10,7 +10,7 @@
 
 typedef enum RegexQuantifier RegexQuantifier;
 enum RegexQuantifier {
-	zeroOrOne,
+	zeroOrOne = 0,
 	exactlyOne,
 	zeroOrMore,
 };
@@ -21,7 +21,12 @@ enum RegexElementType {
 	disjunctionGroup,
 	symbolType,
 	rangeType,	
-	wildCard,
+};
+
+typedef struct Range Range;
+struct Range {
+	char r_start;
+	char r_end;
 };
 
 typedef struct RegexAtom RegexAtom;
@@ -31,11 +36,13 @@ struct RegexAtom {
 	bool re_negated;
 	union {
 		Stack* group_exp;
+		Range range_exp;
 		char symbol_exp;
 	};
 };
 
-RegexAtom* re_init(RegexElementType	re_type, RegexQuantifier re_quantifier);
+RegexAtom* re_init(RegexElementType	re_type, RegexQuantifier re_quantifier,
+		bool re_negated);
 
 void re_destroy(void* rexp);
 

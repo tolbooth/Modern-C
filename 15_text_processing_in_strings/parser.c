@@ -1,5 +1,5 @@
 #include <assert.h>
-
+#include <limits.h>
 #include "./include/parser.h"
 #include "./include/regex.h"
 #include "./include/errors.h"
@@ -35,39 +35,84 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 	Stack* first_group = s_init(re_destroy);
 	if (!first_group)
 		return error_cleanup(ENOMEM, err); 
+	
 	s_push(processing_stack, first_group);
 	
-	 while (index < str_size) {
-		RegexAtom* next_elem = 0;
-	 	switch (rgx_str[index]) {
-	 		case '*': 
-	 			assert(0 && "TODO: implement this case");
-				++index;
-	 			break;
-	 		case '^':
-	 			assert(0 && "TODO: implement this case");
-				++index;
-	 			break;
-	 		case '?': 
-	 			assert(0 && "TODO: implement this case");
-				++index;
-	 			break;
-	 		case '[': 
-	 			assert(0 && "TODO: implement this case");
-				++index;
-	 			break;
-	 		case ']': // error on mismatched brackets? 
-	 			assert(0 && "TODO: implement this case");
-				++index;
-	 			break;
-	 		case '.': 
-				next_elem = re_init(wildCard, exactlyOne);
+	bool negated_flag = 0;
 
+	while (index < str_size) {
+		RegexAtom* next_elem = 0;
+		RegexAtom* prev_elem = 0;
+		char next_char = rgx_str[index]; 
+		switch (next_char) {
+	 		case '*': 
+				// god this is ugly... i should fix my stack
+				prev_elem =	(RegexAtom*) 
+					s_peek((Stack*) s_peek(processing_stack));
+				// only one quantifier should be allowed at once. this can be
+				// changed to allow for lazy quantifiers.
+				if (!prev_elem || prev_elem->re_quantifier != exactlyOne) {
+					return_code = error_cleanup(EFAULT, err);
+					goto CLEANUP;		
+				}
+				prev_elem->re_quantifier = zeroOrMore;
+				++index;
+	 			break;
+	 		case '^': // make sure to consume this when we push new element on!
+				negated_flag = 1;
+				++index;
+	 			break; 
+	 		case '?': 
+				prev_elem = (RegexAtom*)
+					s_peek((Stack*) s_peek(processing_stack));
+				// only one quantifier should be allowed at once. this can be
+				// changed to allow for lazy quantifiers.
+				if (!prev_elem || prev_elem->re_quantifier != exactlyOne) {
+					return_code = error_cleanup(EFAULT, err);
+					goto CLEANUP;		
+				}
+				prev_elem->re_quantifier = zeroOrOne;
+				++index;
+	 			break;
+	 		case '[': // pattern matching! for now, only ranges [a-Z] 
+				char range_start = rgx_str[index + 1];
+				char range_end = rgx_str[index + 3];
+				if (rgx_str[index + 2] != '-' || rgx_str[index + 4] != ']') {
+					return_code = error_cleanup(EFAULT, err);
+					goto CLEANUP;		
+				}
+				
+				next_elem = re_init(rangeType, exactlyOne, negated_flag);
 				if (!next_elem) {
 					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
 				}
 
+				next_elem->range_exp.r_start = range_start;
+				next_elem->range_exp.r_end = range_end;
+
+				if (negated_flag)
+				   	negated_flag = 0;
+				s_push(first_group, next_elem);
+						
+				index += 5;
+	 			break;
+	 		case ']': // error on mismatched brackets? 
+				return_code = error_cleanup(EFAULT, err);
+				goto CLEANUP;		
+	 			break;
+	 		case '.': 
+				next_elem = re_init(rangeType, exactlyOne, negated_flag);
+				if (!next_elem) {
+					return_code = error_cleanup(ENOMEM, err);
+					goto CLEANUP;		
+				}
+
+				next_elem->range_exp.r_start = CHAR_MIN;
+				next_elem->range_exp.r_end = CHAR_MAX;
+
+				if (negated_flag)
+				   	negated_flag = 0;
 				s_push(first_group, next_elem);
 				++index;
 	 			break; 
@@ -81,26 +126,30 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 					goto CLEANUP;
 				}
 
-				next_elem = re_init(symbolType, exactlyOne);
+				next_elem = re_init(symbolType, exactlyOne, negated_flag);
 				if (!next_elem) {
 					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
 				}
 
+				if (negated_flag)
+				   	negated_flag = 0;
 				next_elem->symbol_exp = rgx_str[index + 1];
 				s_push(first_group, next_elem);
 				index += 2;
 	 			break;
 	 		default:
 	 			// just directly push the character we get
-				next_elem = re_init(symbolType, exactlyOne);
+				next_elem = re_init(symbolType, exactlyOne, negated_flag);
 
 				if (!next_elem) {
 					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
 				}
 
-				next_elem->symbol_exp = rgx_str[index];
+				if (negated_flag)
+				   	negated_flag = 0;
+				next_elem->symbol_exp = next_char;
 				s_push(first_group, next_elem);
 				++index;
 	 			break; 
@@ -111,7 +160,7 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 	assert(index == str_size);
 	assert(processing_stack->s_size == 1);
 
-	RegexAtom* final_group = re_init(conjunctionGroup, exactlyOne);
+	RegexAtom* final_group = re_init(conjunctionGroup, exactlyOne, 0);
 	final_group->group_exp = (Stack*) s_pop(processing_stack); 
 	*regex = final_group; 
  CLEANUP:	 
