@@ -208,4 +208,35 @@ int main(void) {
 		re_destroy(expected_regex);
 		re_destroy(test_elem_e);
 	}
+	// grouping
+	{
+		RegexAtom* test_elem_f= 0;
+		assert(parse(&test_elem_f, 6, "^(ab)c") == 6);
+
+		Stack* expected_stack = s_init(re_destroy);	
+		Stack* nested_stack = s_init(re_destroy);	
+		RegexAtom* a_regex = re_init(symbolType, exactlyOne, 0);
+		RegexAtom* b_regex = re_init(symbolType, exactlyOne, 0);
+		RegexAtom* c_regex = re_init(symbolType, exactlyOne, 0);
+		a_regex->symbol_exp = 'a';
+		b_regex->symbol_exp = 'b';
+		c_regex->symbol_exp = 'c';
+		s_push(nested_stack, a_regex);
+		s_push(nested_stack, b_regex);
+		RegexAtom* grouped_regex = re_init(conjunctionGroup, exactlyOne, 1);
+	   	grouped_regex->group_exp = nested_stack;	
+		s_push(expected_stack, grouped_regex);
+		s_push(expected_stack, c_regex);
+
+		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne, 0);
+		expected_regex->group_exp = expected_stack;	
+		
+		print_regex(test_elem_f, 0);
+		print_regex(expected_regex, 0);
+
+		assert(compare_regex(test_elem_f, expected_regex));
+
+		re_destroy(expected_regex);
+		re_destroy(test_elem_f);
+	}
 }

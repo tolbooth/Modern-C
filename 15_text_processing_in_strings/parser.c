@@ -5,14 +5,16 @@
 #include "./include/errors.h"
 
 /**
- * mallocs space for node, must be handled with re_destroy
- * issues:
- *  1. handling character classes is messy
- *  2. negating a an element or group is not possible
+ * Generates an AST based on the provided regex string.
  * 
- * in both of these cases, we need some sense of "any of these, but must be
- * at least one of them". do we need to have a new type of RegexAtom?
- * need 4 characters to define boundaries of a range, to allow for negation
+ * @param regex		the out param, a reference to generated AST root. 
+ * @param str_size	size of string to parse.
+ * @param rgx_str	string representing a valid regular expression.
+ *
+ * @return 			number of characters consumed, should match str_size. may
+ *					return error codes -EFAULT for invalid input, and -ENOMEM
+ *					if execution encounters an allocation error.
+ *
  */
 int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 	if (!regex)
@@ -33,16 +35,18 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 		return error_cleanup(ENOMEM, err); 
 
 	Stack* first_group = s_init(re_destroy);
-	if (!first_group)
-		return error_cleanup(ENOMEM, err); 
+	if (!first_group) {
+		return_code = error_cleanup(ENOMEM, err); 
+		goto CLEANUP;
+	}
 	
 	s_push(processing_stack, first_group);
 	
 	bool negated_flag = 0;
-
 	while (index < str_size) {
 		RegexAtom* next_elem = 0;
 		RegexAtom* prev_elem = 0;
+		Stack* new_group = 0;
 		char next_char = rgx_str[index]; 
 		switch (next_char) {
 	 		case '*': 
@@ -58,10 +62,6 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 				prev_elem->re_quantifier = zeroOrMore;
 				++index;
 	 			break;
-	 		case '^': // make sure to consume this when we push new element on!
-				negated_flag = 1;
-				++index;
-	 			break; 
 	 		case '?': 
 				prev_elem = (RegexAtom*)
 					s_peek((Stack*) s_peek(processing_stack));
@@ -74,6 +74,55 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 				prev_elem->re_quantifier = zeroOrOne;
 				++index;
 	 			break;
+			case '(':
+				new_group = s_init(re_destroy);
+				if (!new_group) {
+					return_code = error_cleanup(ENOMEM, err);
+					goto CLEANUP;		
+				}
+				s_push(processing_stack, s_init(re_destroy));
+				++index;
+				break;
+			case ')':
+				// Make sure we do actually have an open group!
+				if (processing_stack->s_size < 2) {
+					return_code = error_cleanup(ENOMEM, err);
+					goto CLEANUP;		
+				}
+
+				new_group = s_pop(processing_stack);
+
+				next_elem = re_init(conjunctionGroup, exactlyOne, negated_flag);
+
+				if (!next_elem) {
+					return_code = error_cleanup(ENOMEM, err);
+					goto CLEANUP;		
+				}
+
+				if (negated_flag)
+				   	negated_flag = 0;
+
+				next_elem->group_exp = new_group;
+				s_push((Stack*) s_peek(processing_stack), next_elem);
+				++index;
+	 			break; 
+				++index;
+				break;
+	 		case '^': // make sure to consume this when we push new element on!
+				// this approach doesn't work with groups... how could we
+				// address this?
+				if (rgx_str[index + 1] == '^' || rgx_str[index + 1] == ')' ||
+						rgx_str[index + 1] == '*' || rgx_str[index + 1] == '?') {
+					return_code = error_cleanup(ENOMEM, err);
+					goto CLEANUP;		
+				}
+				
+				// needs a stack >:( with ability to track context, i.e. where
+				// was this negation invoked, to handle ^(bc)
+
+				negated_flag = 1;
+				++index;
+	 			break; 
 	 		case '[': // pattern matching! for now, only ranges [a-Z] 
 				char range_start = rgx_str[index + 1];
 				char range_end = rgx_str[index + 3];
@@ -93,7 +142,8 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 
 				if (negated_flag)
 				   	negated_flag = 0;
-				s_push(first_group, next_elem);
+
+				s_push((Stack*) s_peek(processing_stack), next_elem);
 						
 				index += 5;
 	 			break;
@@ -113,7 +163,8 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 
 				if (negated_flag)
 				   	negated_flag = 0;
-				s_push(first_group, next_elem);
+
+				s_push((Stack*) s_peek(processing_stack), next_elem);
 				++index;
 	 			break; 
 			// alphas and numerics first, defined in a range and separated by a
@@ -134,8 +185,9 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 
 				if (negated_flag)
 				   	negated_flag = 0;
+				
 				next_elem->symbol_exp = rgx_str[index + 1];
-				s_push(first_group, next_elem);
+				s_push((Stack*) s_peek(processing_stack), next_elem);
 				index += 2;
 	 			break;
 	 		default:
@@ -149,8 +201,9 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 
 				if (negated_flag)
 				   	negated_flag = 0;
+				
 				next_elem->symbol_exp = next_char;
-				s_push(first_group, next_elem);
+				s_push((Stack*) s_peek(processing_stack), next_elem);
 				++index;
 	 			break; 
 	 	}
