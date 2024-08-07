@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <limits.h>
+#include <stdint.h>
 #include "./include/parser.h"
 #include "./include/regex.h"
 #include "./include/errors.h"
@@ -41,12 +42,18 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 	}
 	
 	s_push(processing_stack, first_group);
+
+	// implicitly assuming we never get more than 64 stack layers deep	
+	uint64_t negated_bit_stack = 0u;	
+	uint64_t negated_bit_set = 0u; 
 	
-	bool negated_flag = 0;
 	while (index < str_size) {
 		RegexAtom* next_elem = 0;
 		RegexAtom* prev_elem = 0;
 		Stack* new_group = 0;
+
+		negated_bit_set = 1u << processing_stack->s_size;
+
 		char next_char = rgx_str[index]; 
 		switch (next_char) {
 	 		case '*': 
@@ -91,16 +98,18 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 				}
 
 				new_group = s_pop(processing_stack);
+				negated_bit_set = 1u << processing_stack->s_size;
 
-				next_elem = re_init(conjunctionGroup, exactlyOne, negated_flag);
+				next_elem = re_init(conjunctionGroup, exactlyOne,
+						(negated_bit_stack & negated_bit_set));
 
 				if (!next_elem) {
 					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
 				}
-
-				if (negated_flag)
-				   	negated_flag = 0;
+				
+				// clear our flag once consumed.
+				negated_bit_stack &= (~negated_bit_set);
 
 				next_elem->group_exp = new_group;
 				s_push((Stack*) s_peek(processing_stack), next_elem);
@@ -117,10 +126,8 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 					goto CLEANUP;		
 				}
 				
-				// needs a stack >:( with ability to track context, i.e. where
-				// was this negation invoked, to handle ^(bc)
 
-				negated_flag = 1;
+				negated_bit_stack ^= negated_bit_set;
 				++index;
 	 			break; 
 	 		case '[': // pattern matching! for now, only ranges [a-Z] 
@@ -131,7 +138,8 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 					goto CLEANUP;		
 				}
 				
-				next_elem = re_init(rangeType, exactlyOne, negated_flag);
+				next_elem = re_init(rangeType, exactlyOne,
+						(negated_bit_stack & negated_bit_set));
 				if (!next_elem) {
 					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
@@ -139,9 +147,8 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 
 				next_elem->range_exp.r_start = range_start;
 				next_elem->range_exp.r_end = range_end;
-
-				if (negated_flag)
-				   	negated_flag = 0;
+				
+				negated_bit_stack &= (~negated_bit_set);
 
 				s_push((Stack*) s_peek(processing_stack), next_elem);
 						
@@ -152,7 +159,8 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 				goto CLEANUP;		
 	 			break;
 	 		case '.': 
-				next_elem = re_init(rangeType, exactlyOne, negated_flag);
+				next_elem = re_init(rangeType, exactlyOne,
+						(negated_bit_stack & negated_bit_set));
 				if (!next_elem) {
 					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
@@ -161,8 +169,7 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 				next_elem->range_exp.r_start = CHAR_MIN;
 				next_elem->range_exp.r_end = CHAR_MAX;
 
-				if (negated_flag)
-				   	negated_flag = 0;
+				negated_bit_stack &= (~negated_bit_set);
 
 				s_push((Stack*) s_peek(processing_stack), next_elem);
 				++index;
@@ -177,14 +184,14 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 					goto CLEANUP;
 				}
 
-				next_elem = re_init(symbolType, exactlyOne, negated_flag);
+				next_elem = re_init(symbolType, exactlyOne,
+						(negated_bit_stack & negated_bit_set));
 				if (!next_elem) {
 					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
 				}
 
-				if (negated_flag)
-				   	negated_flag = 0;
+				negated_bit_stack &= (~negated_bit_set);
 				
 				next_elem->symbol_exp = rgx_str[index + 1];
 				s_push((Stack*) s_peek(processing_stack), next_elem);
@@ -192,15 +199,15 @@ int parse(RegexAtom** regex, size_t str_size, char rgx_str[str_size]) {
 	 			break;
 	 		default:
 	 			// just directly push the character we get
-				next_elem = re_init(symbolType, exactlyOne, negated_flag);
+				next_elem = re_init(symbolType, exactlyOne,
+						(negated_bit_stack & negated_bit_set));
 
 				if (!next_elem) {
 					return_code = error_cleanup(ENOMEM, err);
 					goto CLEANUP;		
 				}
 
-				if (negated_flag)
-				   	negated_flag = 0;
+				negated_bit_stack &= (~negated_bit_set);
 				
 				next_elem->symbol_exp = next_char;
 				s_push((Stack*) s_peek(processing_stack), next_elem);
