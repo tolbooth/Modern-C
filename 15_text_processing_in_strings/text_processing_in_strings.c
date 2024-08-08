@@ -26,34 +26,37 @@ static char* quantifiers[3] = {"zeroOrOne", "exactlyOne", "zeroOrMore"};
 
 static void print_regex(RegexAtom* regexp, size_t count) {
 	for (size_t i = 0; i < count; ++i)
-		putchar('\t');
-
+		fputs("  ", stdout);
 	putchar('{');
-	putchar('\n');
-	
-	for (size_t i = 0; i < count + 1; ++i)
-		putchar('\t');
-	printf("%s, %s, %d, ", types[regexp->re_type], 
+	printf(" %s, %s, %d, ", types[regexp->re_type], 
 			quantifiers[regexp->re_quantifier],
 			regexp->re_negated);
 	if (regexp->re_type <= 1) {
+		fputs("groups:", stdout); 
 		StackNode* cursor = (StackNode*) regexp->group_exp->s_tail;
+		putchar('\n');
+		for (size_t i = 0; i < count + 1; ++i)
+			fputs("  ", stdout);
+		putchar('['); 
 		putchar('\n');
 		while (cursor) {
 			if (cursor->sn_data) {
-				print_regex((RegexAtom*) cursor->sn_data, count + 1);
+				print_regex((RegexAtom*) cursor->sn_data, count + 2);
 			}
 			cursor = cursor->sn_prev;
 		}
-	} else {
-		printf("%c", regexp->symbol_exp);
-	}
-	putchar('\n');
-	
-	for (size_t i = 0; i < count; ++i) 
-		putchar('\t');
+		for (size_t i = 0; i < count + 1; ++i)
+			fputs("  ", stdout);
+		putchar(']');
+		putchar('\n');
+		for (size_t i = 0; i < count; ++i)
+			fputs("  ", stdout);
 
-	putchar('}');	
+	} else {
+		printf("%c ", regexp->symbol_exp);
+	}
+	putchar('}');
+	putchar(',');	
 	putchar('\n');	
 }
 
