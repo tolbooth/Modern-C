@@ -52,8 +52,11 @@ static void print_regex(RegexAtom* regexp, size_t count) {
 		for (size_t i = 0; i < count; ++i)
 			fputs("  ", stdout);
 
-	} else {
+	} else if (regexp->re_type == symbolType) {
 		printf("%c ", regexp->symbol_exp);
+	} else {
+		printf("start: %c, end: %c", regexp->range_exp.r_start,
+				regexp->range_exp.r_end);
 	}
 	putchar('}');
 	putchar(',');	
@@ -167,7 +170,6 @@ int main(void) {
 		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne, 0);
 		expected_regex->group_exp = expected_stack;
 		assert(compare_regex(test_elem_c, expected_regex));
-		
 		re_destroy(expected_regex);
 		re_destroy(test_elem_c);
 	}
@@ -186,8 +188,6 @@ int main(void) {
 
 		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne, 0);
 		expected_regex->group_exp = expected_stack;
-		// print_regex(expected_regex, 0);
-		// print_regex(test_elem_d, 0);
 		assert(compare_regex(test_elem_d, expected_regex));
 		
 		re_destroy(expected_regex);
@@ -234,9 +234,6 @@ int main(void) {
 		RegexAtom* expected_regex = re_init(conjunctionGroup, exactlyOne, 0);
 		expected_regex->group_exp = expected_stack;	
 		
-		print_regex(test_elem_f, 0);
-		print_regex(expected_regex, 0);
-
 		assert(compare_regex(test_elem_f, expected_regex));
 
 		re_destroy(expected_regex);
