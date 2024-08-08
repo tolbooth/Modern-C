@@ -8,6 +8,14 @@
 /**
  * Generates an AST based on the provided regex string.
  * 
+ * TODO: Implement logic for handling disjunctions
+ * 
+ * TODO: Rework the allocation strategy and storage for RegexAtoms. This may
+ * involve changing the out parameter, and incorporation the valid code into
+ * the structure itself, and potentially a preprocess method that calculates
+ * the amount of storage needed for a given regular expression, so that we can
+ * take an arena allocator approach.
+ *
  * @param regex		the out param, a reference to generated AST root. 
  * @param str_size	size of string to parse.
  * @param rgx_str	string representing a valid regular expression.
